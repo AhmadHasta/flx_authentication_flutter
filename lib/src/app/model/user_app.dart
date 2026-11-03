@@ -9,12 +9,18 @@ class UserApp extends User {
   });
 
   factory UserApp.fromJson(Map<String, dynamic> json) {
-    final nip = json['nip'] as String;
+    final nip = (json['nip'] ?? json['username'] ?? '').toString();
+    final rawId = json['id'] ?? json['user_id'];
+    final id = rawId is int
+        ? rawId
+        : (int.tryParse(rawId?.toString() ?? '0') ?? 0);
+    final name = (json['name'] ?? '').toString();
+    final role = (json['role'] ?? json['structure_id'] ?? '').toString();
     return UserApp(
       nip: nip,
-      id: json['id'] as int,
-      name: json['name'] as String,
-      role: json['role'] as String,
+      id: id,
+      name: name,
+      role: role,
     );
   }
 

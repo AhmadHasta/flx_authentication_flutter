@@ -49,53 +49,42 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
               '[LOGIN] submit with nip: $nip, withTwoFactor: $withTwoFactor',
             );
             final repository = AuthenticationRepositoryApi.instance;
-            if (withTwoFactor) {
-              final result = await repository.loginWithTwoFactor(
-                nip: nip,
-                password: password,
-                url: urlApi,
-              );
-              if (result.isTwoFactor) {
-                emit(_SuccessWithTwoFactor(result.authId!));
-              } else {
-                final accessToken = result.accessToken!;
-                final user = extractPayloadFromJwt(accessToken);
-                final data = onLoginSuccess != null
-                    ? await onLoginSuccess(accessToken, user)
-                    : <String, dynamic>{};
-
-                final host =
-                    urlApi != null ? 'https://${Uri.parse(urlApi).host}' : null;
-
-                final employeeId =
-                    (user['id'] ?? user['user_id'] ?? user['nip'])
-                            ?.toString() ??
-                        '';
-
-                final permissions = await repository.fetchUserPermissions(
-                  accessToken: accessToken,
-                  employeeId: employeeId,
-                  host: host,
-                );
-
-                emit(
-                  _Success(
-                    accessToken,
-                    permissions,
-                    data,
-                    refreshToken: result.refreshToken,
-                  ),
-                );
-              }
+            final result = await repository.loginWithTwoFactor(
+              nip: nip,
+              password: password,
+              url: urlApi,
+            );
+            if (withTwoFactor && result.isTwoFactor) {
+              emit(_SuccessWithTwoFactor(result.authId!));
             } else {
-              final token = await repository.login(
-                nip: nip,
-                password: password,
-                url: urlApi ?? '',
+              final accessToken = result.accessToken!;
+              final user = extractPayloadFromJwt(accessToken);
+              final data = onLoginSuccess != null
+                  ? await onLoginSuccess(accessToken, user)
+                  : <String, dynamic>{};
+
+              final host =
+                  urlApi != null ? 'https://${Uri.parse(urlApi).host}' : null;
+
+              final employeeId =
+                  (user['id'] ?? user['user_id'] ?? user['nip'])
+                          ?.toString() ??
+                      '';
+
+              final permissions = await repository.fetchUserPermissions(
+                accessToken: accessToken,
+                employeeId: employeeId,
+                host: host,
               );
-              final data = extractPayloadFromJwt(token);
-              final permission = Access.fetchPermissions(data['rl'] as String);
-              emit(_Success(token, permission, data));
+
+              emit(
+                _Success(
+                  accessToken,
+                  permissions,
+                  data,
+                  refreshToken: result.refreshToken,
+                ),
+              );
             }
           } on ApiException catch (error) {
             emit(_Error(nip: error.message));

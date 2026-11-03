@@ -49,10 +49,6 @@ class LoginCredentialView extends StatelessWidget {
               refreshToken: refreshToken,
             ),
           );
-          onLoginSuccess(
-            accessToken,
-            extractPayloadFromJwt(accessToken),
-          );
         },
       ),
     );

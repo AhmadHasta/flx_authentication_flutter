@@ -12,17 +12,18 @@ class AuthenticationChecker extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocListener<AuthenticationBloc, AuthenticationState>(
       listener: (context, state) {
-        state.maybeWhen(
-          authenticated: (_, __, ___, ____) => context.go('/home'),
-          orElse: () => context.go('/login'),
+        state.map(
+          authenticated: (_) => context.go('/home'),
+          unauthenticated: (_) => context.go('/login'),
         );
       },
       bloc: AuthenticationBloc.instance,
       child: BlocBuilder<AuthenticationBloc, AuthenticationState>(
         builder: (context, state) {
-          return state.maybeWhen(
-            authenticated: (_, __, ___, ____) => home,
-            orElse: () => const Center(child: CircularProgressIndicator()),
+          return state.map(
+            authenticated: (_) => home,
+            unauthenticated: (_) =>
+                const Center(child: CircularProgressIndicator()),
           );
         },
       ),
@@ -44,9 +45,9 @@ class AuthenticationBuilder extends StatelessWidget {
     return BlocBuilder<AuthenticationBloc, AuthenticationState>(
       bloc: AuthenticationBloc.instance,
       builder: (context, state) {
-        return state.maybeWhen(
-          authenticated: (_, __, ___, ____) => authenticated(),
-          orElse: () => unAuthenticated,
+        return state.map(
+          authenticated: (_) => authenticated(),
+          unauthenticated: (_) => unAuthenticated,
         );
       },
     );

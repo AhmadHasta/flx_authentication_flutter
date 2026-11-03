@@ -23,6 +23,7 @@ abstract class UserRepository {
     token = null;
     refreshToken = null;
     user = null;
+    permissions = [];
   }
 }
 
@@ -60,11 +61,15 @@ class UserRepositoryApp extends UserRepository {
     permissions = permission;
 
     () async {
-      final userRepository = await Hive.openBox<dynamic>('user_repository');
-      await userRepository.put(
-        'permission',
-        Permission.toListString(permissions),
-      );
+      try {
+        final userRepository = await Hive.openBox<dynamic>('user_repository');
+        await userRepository.put(
+          'permission',
+          Permission.toListString(permissions),
+        );
+      } catch (e) {
+        print('[USER REPO] Failed to save permission to hive: $e');
+      }
     }();
   }
 

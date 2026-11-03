@@ -16,6 +16,10 @@ class AuthenticationRepositoryApi extends Repository {
   static String get rolePath => '${Api.urlApi}/role';
   static String get reportListUserPath => '${Api.urlApi}/report-list-user-access';
 
+  /// Custom path builder untuk fetch roles employee.
+  /// Contoh: `(employeeId, host) => '${host ?? Api.urlAuth}/user-roles/$employeeId'`
+  static String Function(String employeeId, String? host)? employeeRolesPathBuilder;
+
   static AuthenticationRepositoryApi instance = AuthenticationRepositoryApi(
     dio: Api.dio,
     onUnauthorized: AuthenticationRepository.logout,
@@ -27,9 +31,13 @@ class AuthenticationRepositoryApi extends Repository {
     required String? url,
   }) async {
     try {
-      final response = await dio.get<Map<String, dynamic>>(
-        url ?? pathLogin,
+      final targetUrl = url ?? pathLogin;
+      final isPost = targetUrl.contains('verify-password');
+      final response = await dio.request<Map<String, dynamic>>(
+        targetUrl,
+        data: isPost ? jsonEncode({'device_id': ''}) : null,
         options: Options(
+          method: isPost ? 'POST' : 'GET',
           headers: {
             RequestHeader.authorization: getBasicAuthHeader(nip, password),
           },
@@ -153,12 +161,28 @@ class AuthenticationRepositoryApi extends Repository {
     try {
       final path = '${host ?? Api.urlApi}/roles/${role.id}/permissions';
       print('[AUTH REPO] rolePermissionFetch: $path');
-      final response = await dio.get<Map<String, dynamic>>(
-        path,
-        options: Options(
-          headers: {RequestHeader.authorization: 'Bearer $accessToken'},
-        ),
-      );
+      Response<Map<String, dynamic>> response;
+      try {
+        response = await dio.get<Map<String, dynamic>>(
+          path,
+          options: Options(
+            headers: {RequestHeader.authorization: 'Bearer $accessToken'},
+          ),
+        );
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) {
+          final fallbackPath = '${host ?? Api.urlAuth}/roles/${role.id}/permissions';
+          print('[AUTH REPO] rolePermissionFetch fallback: $fallbackPath');
+          response = await dio.get<Map<String, dynamic>>(
+            fallbackPath,
+            options: Options(
+              headers: {RequestHeader.authorization: 'Bearer $accessToken'},
+            ),
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       final roles = <String>[];
       final data = response.data!['data'] as List;
@@ -291,14 +315,32 @@ class AuthenticationRepositoryApi extends Repository {
       return <Role>[];
     }
     try {
-      final path = '${host ?? Api.urlApi}/users/$employeeId/roles';
+      final path = employeeRolesPathBuilder != null
+          ? employeeRolesPathBuilder!(employeeId, host)
+          : '${host ?? Api.urlApi}/users/$employeeId/roles';
       print('[AUTH REPO] employeeRoleFetch: $path');
-      final response = await dio.get<Map<String, dynamic>>(
-        path,
-        options: Options(
-          headers: {RequestHeader.authorization: 'Bearer $accessToken'},
-        ),
-      );
+      Response<Map<String, dynamic>> response;
+      try {
+        response = await dio.get<Map<String, dynamic>>(
+          path,
+          options: Options(
+            headers: {RequestHeader.authorization: 'Bearer $accessToken'},
+          ),
+        );
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404 && employeeRolesPathBuilder == null) {
+          final fallbackPath = '${host ?? Api.urlAuth}/user-roles/$employeeId';
+          print('[AUTH REPO] employeeRoleFetch fallback: $fallbackPath');
+          response = await dio.get<Map<String, dynamic>>(
+            fallbackPath,
+            options: Options(
+              headers: {RequestHeader.authorization: 'Bearer $accessToken'},
+            ),
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       final roles = <Role>[];
 
@@ -335,9 +377,10 @@ class AuthenticationRepositoryApi extends Repository {
       final data = response.data!['data'] as List;
 
       for (final data in data) {
-        employee.add(
-          ((data as Map<String, dynamic>)['user_id'] as int).toString(),
-        );
+        final userId = (data as Map<String, dynamic>)['user_id'];
+        if (userId != null) {
+          employee.add(userId.toString());
+        }
       }
 
       return employee;
