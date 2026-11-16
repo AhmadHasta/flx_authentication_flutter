@@ -44,22 +44,23 @@ class AuthenticationRepositoryApi extends Repository {
         ),
       );
 
-      final data = response.data!['data'] as Map<String, dynamic>?;
-      final success = response.data!['success'] as bool? ?? false;
-      if (!success || data == null) {
+      final rawData = response.data?['data'];
+      final data = rawData is Map<String, dynamic> ? rawData : null;
+      final success = response.data?['success'] as bool? ?? false;
+      if (!success) {
         throw ApiException.fromType(ExceptionType.invalidUsernamePassword);
       }
 
-      if (data.containsKey('access_token')) {
+      if (data?.containsKey('access_token') ?? false) {
         return LoginAuthResult.direct(
-          accessToken: data['access_token'] as String,
+          accessToken: data!['access_token'] as String,
           refreshToken: data['refresh_token'] as String?,
           user: data,
         );
       }
 
-      if (data.containsKey('auth_at')) {
-        return LoginAuthResult.twoFactor(authId: data['auth_at'] as String);
+      if (data?.containsKey('auth_at') ?? false) {
+        return LoginAuthResult.twoFactor(authId: data!['auth_at'] as String);
       }
 
       return LoginAuthResult.twoFactor(authId: nip);
